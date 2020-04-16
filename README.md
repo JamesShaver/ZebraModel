@@ -1,6 +1,6 @@
 <img src="https://github.com/stefangabos/zebrajs/blob/master/docs/images/logo.png" alt="zebrajs" align="right">
 
-# Zebra_Mptt
+# Zebra_Mptt (Converted to CodeIgniter 4)
 
 *A PHP library providing an implementation of the modified preorder tree traversal algorithm*
 
@@ -41,25 +41,18 @@ Zebra\_Mptt uses [table locks](http://dev.mysql.com/doc/refman/5.0/en/lock-table
 
 ## Requirements
 
-PHP 5.0.0+, MySQL 4.1.22+
+- PHP version 7.2 or newer is required, with the *[intl](https://www.php.net/manual/en/intl.requirements.php)* extension and *[mbstring](https://www.php.net/manual/en/mbstring.requirements.php)* extension installed.
+- The following PHP extensions should be enabled on your server: php-json, php-mysqlnd, php-xml
+- In order to use the CURLRequest, you will need libcurl installed.
+
+A database is required for most web application programming. Currently supported databases are:
+- MySQL (5.1+) via the MySQLi driver
+- PostgreSQL via the Postgre driver
+- SQLite3 via the SQLite3 driver
 
 ## Installation
 
-You can install Zebra_Mptt via [Composer](https://packagist.org/packages/stefangabos/zebra_mptt)
-
-```bash
-# get the latest stable release
-composer require stefangabos/zebra_mptt
-
-# get the latest commit
-composer require stefangabos/zebra_mptt:dev-master
-```
-
-Or you can install it manually by downloading the latest version, unpacking it, and then including it in your project
-
-```php
-require_once 'path/to/Zebra_Mptt.php';
-```
+This is written as a CodeIgniter Model, and so can simply be downloaded and copied to your 'App\Models' directory.
 
 ## Install MySQL table
 
@@ -68,41 +61,46 @@ Notice a directory called *install* containing a file named *mptt.sql*. This fil
 ## How to use
 
 ```php
-// include the Zebra_Mptt class
-require 'path/to/Zebra_Mptt.php';
+// use the ZebraModel namespace in your controller
+<?php namespace App\Controllers;
+use CodeIgniter\Controller;
+use App\Models\ZebraModel;
+class Test extends Controller
+{
 
-// instantiate a new object
-$mptt = new Zebra_Mptt();
+public function add() {
+            // instantiate a new object
+            $mptt = new ZebraModel();
+           
+           // add 'Food' as a topmost node
+            $food = $mptt->add(0, 'Food');
 
-// populate the table
+            // 'Fruit' and 'Meat' are direct descendants of 'Food'
+            $fruit = $mptt->add($food, 'Fruit');
+            $meat = $mptt->add($food, 'Meat');
 
-// add 'Food' as a topmost node
-$food = $mptt->add(0, 'Food');
+            // 'Red' and 'Yellow' are direct descendants of 'Fruit'
+            $red = $mptt->add($fruit, 'Red');
+            $yellow = $mptt->add($fruit, 'Yellow');
 
-// 'Fruit' and 'Meat' are direct descendants of 'Food'
-$fruit = $mptt->add($food, 'Fruit');
-$meat = $mptt->add($food, 'Meat');
+            // add a fruit of each color
+            $cherry = $mptt->add($red, 'Cherry');
+            $banana = $mptt->add($yellow, 'Banana');
 
-// 'Red' and 'Yellow' are direct descendants of 'Fruit'
-$red = $mptt->add($fruit, 'Red');
-$yellow = $mptt->add($fruit, 'Yellow');
+            // add two kinds of meat
+            $mptt->add($meat, 'Beef');
+            $mptt->add($meat, 'Pork');
+            
+            // move 'Banana' to 'Meat'
+            $mptt->move($banana, $meat);
 
-// add a fruit of each color
-$cherry = $mptt->add($red, 'Cherry');
-$banana = $mptt->add($yellow, 'Banana');
+            // get a flat array of descendants of 'Meat'
+            $mptt->get_children($meat);
 
-// add two kinds of meat
-$mptt->add($meat, 'Beef');
-$mptt->add($meat, 'Pork');
-
-// move 'Banana' to 'Meat'
-$mptt->move($banana, $meat);
-
-// get a flat array of descendants of 'Meat'
-$mptt->get_children($meat);
-
-// get a multidimensional array (a tree) of all the data in the database
-$mptt->get_tree();
+            // get a multidimensional array (a tree) of all the data in the database
+            echo '<pre>' . print_r($mptt->get_tree(), TRUE) . '</pre>';
+        }
+}        
 ```
 
 :books: Check out the [awesome documentation](https://stefangabos.github.io/Zebra_Mptt/Zebra_Mptt/Zebra_Mptt.html)!
