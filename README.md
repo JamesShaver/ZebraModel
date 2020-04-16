@@ -18,7 +18,7 @@ For more information about the modified preorder tree traversal method, read thi
 
 ## What is Zebra_Mptt
 
-**Zebra_Mptt** is a PHP library that provides an implementation of the modified preorder tree traversal algorithm making it easy to implement the MPTT algorithm in your PHP applications.
+**Zebra_Mptt** is a PHP CodeIgniter 4 model that provides an implementation of the modified preorder tree traversal algorithm making it easy to implement the MPTT algorithm in your PHP applications.
 
 It provides methods for adding nodes anywhere in the tree, deleting nodes, moving and copying nodes around the tree and methods for retrieving various information about the nodes.
 
