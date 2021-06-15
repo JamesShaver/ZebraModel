@@ -1,7 +1,5 @@
 <?php
 
-namespace App\Models;
-
 /**
  *  A PHP library that provides an implementation of the modified preorder tree traversal algorithm making it easy to
  *  implement the MPTT algorithm in your PHP applications.
@@ -13,10 +11,14 @@ namespace App\Models;
  *  @copyright  (c) 2009 - 2020 Stefan Gabos
  *  @license    http://www.gnu.org/licenses/lgpl-3.0.txt GNU LESSER GENERAL PUBLIC LICENSE
  *  @package    Zebra_Mptt
+ * 
+ * Updated to be integrated with CodeIgniter 4
  */
-use CodeIgniter\Model;
 
-class ZebraModel extends Model {
+namespace App\Libraries;
+class Mptt {
+
+    protected $db;
 
     /**
      *  Constructor of the class.
@@ -31,14 +33,6 @@ class ZebraModel extends Model {
      *  // instantiate the class
      *  $mptt = new Zebra_Mptt($db_link);
      *  </code>
-     *
-     *  @param  resource    &$link          An object representing the connection to a MySQL Server, as returned by
-     *                                      {@link http://www.php.net/manual/en/mysqli.construct.php mysqli_connect}.
-     *
-     *                                      If you use {@link http://stefangabos.ro/php-libraries/zebra-database/ Zebra_Database}
-     *                                      to connect to the database, you can get the connection to the MySQL server
-     *                                      via Zebra_Database's {@link http://stefangabos.ro/wp-content/docs/Zebra_Database/Zebra_Database/Zebra_Database.html#methodget_link get_link}
-     *                                      method.
      *
      *  @param  string      $table_name     (Optional) MySQL table name to be used for storing items.
      *
@@ -66,25 +60,26 @@ class ZebraModel extends Model {
      *
      *  @return void
      */
-    protected $table = 'forum_cats';
-    protected $id_column = 'id';
-    protected $title_column = 'title';
-    protected $left_column = 'lft';
-    protected $right_column = 'rgt';
-    protected $parent_column = 'parent';
+    public function __construct($table_name = 'mptt', $id_column = 'id', $title_column = 'title', $left_column = 'lft', $right_column = 'rgt', $parent_column = 'parent') {
 
-    public function __construct() {
-        parent::__construct();
+        //Connect to the CodeIgniter database
+        $this->db = \Config\Database::connect();
 
-        // initialize properties
-        $this->properties = array(
-            'table_name' => $this->table,
-            'id_column' => $this->id_column,
-            'title_column' => $this->title_column,
-            'left_column' => $this->left_column,
-            'right_column' => $this->right_column,
-            'parent_column' => $this->parent_column
-        );
+        // stop if required PHP version is not available
+        if (version_compare(phpversion(), '5.0.0') < 0) trigger_error('PHP 5.0.0 or greater required', E_USER_ERROR);
+
+            // initialize properties
+            $this->properties = array(
+
+                'table_name'    =>  $table_name,
+                'id_column'     =>  $id_column,
+                'title_column'  =>  $title_column,
+                'left_column'   =>  $left_column,
+                'right_column'  =>  $right_column,
+                'parent_column' =>  $parent_column,
+
+            );
+
     }
 
     /**
@@ -139,14 +134,17 @@ class ZebraModel extends Model {
         $this->_init();
 
         // make sure parent ID is an integer
-        $parent = (int) $parent;
+        $parent = (int)$parent;
 
         // continue only if
         if (
-        // we are adding a topmost node OR
-                $parent == 0 ||
-                // parent node exists in the lookup array
-                isset($this->lookup[$parent])
+
+            // we are adding a topmost node OR
+            $parent == 0 ||
+
+            // parent node exists in the lookup array
+            isset($this->lookup[$parent])
+
         ) {
 
             // get parent's descendant nodes (no deeper than the first level)
@@ -154,27 +152,26 @@ class ZebraModel extends Model {
 
             // if node is to be inserted in the default position (as the last of the parent node's children)
             // give a numerical value to the position
-            if ($position === false)
-                $position = count($descendants);
+            if ($position === false) $position = count($descendants);
 
             // if a custom position was specified
             else {
 
                 // make sure that position is an integer value
-                $position = (int) $position;
+                $position = (int)$position;
 
                 // if position is a bogus number
                 // use the default position (as the last of the parent node's children)
-                if ($position > count($descendants) || $position < 0)
-                    $position = count($descendants);
+                if ($position > count($descendants) || $position < 0) $position = count($descendants);
+
             }
 
             // if parent has no descendants OR the node is to be inserted as the parent node's first child
             if (empty($descendants) || $position == 0)
 
-            // set the boundary - nodes having their "left"/"right" values outside this boundary will be affected by
-            // the insert, and will need to be updated
-            // if parent is not found (meaning that we're inserting a topmost node) set the boundary to 0
+                // set the boundary - nodes having their "left"/"right" values outside this boundary will be affected by
+                // the insert, and will need to be updated
+                // if parent is not found (meaning that we're inserting a topmost node) set the boundary to 0
                 $boundary = isset($this->lookup[$parent]) ? $this->lookup[$parent][$this->properties['left_column']] : 0;
 
             // if parent node has descendant nodes and/or the node needs to be inserted at a specific position
@@ -188,6 +185,7 @@ class ZebraModel extends Model {
                 // set the boundary - nodes having their "left"/"right" values outside this boundary will be affected by
                 // the insert, and will need to be updated
                 $boundary = $descendants[$this->properties['right_column']];
+
             }
 
             // iterate through all the records in the lookup array
@@ -196,14 +194,15 @@ class ZebraModel extends Model {
                 // if the node's "left" value is outside the boundary
                 if ($properties[$this->properties['left_column']] > $boundary)
 
-                // increment it with 2
+                    // increment it with 2
                     $this->lookup[$id][$this->properties['left_column']] += 2;
 
                 // if the node's "right" value is outside the boundary
                 if ($properties[$this->properties['right_column']] > $boundary)
 
-                // increment it with 2
+                    // increment it with 2
                     $this->lookup[$id][$this->properties['right_column']] += 2;
+
             }
 
             // lock table to prevent other sessions from modifying the data and thus preserving data integrity
@@ -244,7 +243,7 @@ class ZebraModel extends Model {
                     )
                 VALUES
                     (
-                        "' . $this->db->escape($title) . '",
+                        "' . $this->db->escapeString($title) . '",
                         ' . ($boundary + 1) . ',
                         ' . ($boundary + 2) . ',
                         ' . $parent . '
@@ -259,11 +258,11 @@ class ZebraModel extends Model {
 
             // add the node to the lookup array
             $this->lookup[$node_id] = array(
-                $this->properties['id_column'] => $node_id,
-                $this->properties['title_column'] => $title,
-                $this->properties['left_column'] => $boundary + 1,
-                $this->properties['right_column'] => $boundary + 2,
-                $this->properties['parent_column'] => $parent,
+                $this->properties['id_column']      => $node_id,
+                $this->properties['title_column']   => $title,
+                $this->properties['left_column']    => $boundary + 1,
+                $this->properties['right_column']   => $boundary + 2,
+                $this->properties['parent_column']  => $parent,
             );
 
             // reorder the lookup array
@@ -271,10 +270,12 @@ class ZebraModel extends Model {
 
             // return the ID of the newly inserted node
             return $node_id;
+
         }
 
         // if script gets this far, something must've went wrong so we return false
         return false;
+
     }
 
     /**
@@ -324,10 +325,13 @@ class ZebraModel extends Model {
 
         // continue only if
         if (
-        // source node exists in the lookup array AND
-                isset($this->lookup[$source]) &&
-                // target node exists in the lookup array OR is 0 (indicating a topmost node)
-                (isset($this->lookup[$target]) || $target == 0)
+
+            // source node exists in the lookup array AND
+            isset($this->lookup[$source]) &&
+
+            // target node exists in the lookup array OR is 0 (indicating a topmost node)
+            (isset($this->lookup[$target]) || $target == 0)
+
         ) {
 
             // get the source's children nodes (if any)
@@ -343,12 +347,17 @@ class ZebraModel extends Model {
             // iterate through source node's children
             foreach ($source_children as $child)
 
-            // save them for later use
+                // save them for later use
                 $sources[] = $this->lookup[$child[$this->properties['id_column']]];
 
             // the value with which items outside the boundary set below, are to be updated with
-            $source_rl_difference = $this->lookup[$source][$this->properties['right_column']] -
-                    $this->lookup[$source][$this->properties['left_column']] + 1;
+            $source_rl_difference =
+
+                $this->lookup[$source][$this->properties['right_column']] -
+
+                $this->lookup[$source][$this->properties['left_column']]
+
+                + 1;
 
             // set the boundary - nodes having their "left"/"right" values outside this boundary will be affected by
             // the insert, and will need to be updated
@@ -360,29 +369,31 @@ class ZebraModel extends Model {
             // if copy is to be inserted in the default position (as the last of the target node's children)
             if ($position === false)
 
-            // give a numerical value to the position
+                // give a numerical value to the position
                 $position = count($target_children);
 
             // if a custom position was specified
             else {
 
                 // make sure given position is an integer value
-                $position = (int) $position;
+                $position = (int)$position;
 
                 // if position is a bogus number
                 if ($position > count($target_children) || $position < 0)
 
-                // use the default position (the last of the target node's children)
+                    // use the default position (the last of the target node's children)
                     $position = count($target_children);
+
             }
 
             // we are about to do an insert and some nodes need to be updated first
+
             // if target has no children nodes OR the copy is to be inserted as the target node's first child node
             if (empty($target_children) || $position == 0)
 
-            // set the boundary - nodes having their "left"/"right" values outside this boundary will be affected by
-            // the insert, and will need to be updated
-            // if parent is not found (meaning that we're inserting a topmost node) set the boundary to 0
+                // set the boundary - nodes having their "left"/"right" values outside this boundary will be affected by
+                // the insert, and will need to be updated
+                // if parent is not found (meaning that we're inserting a topmost node) set the boundary to 0
                 $target_boundary = isset($this->lookup[$target]) ? $this->lookup[$target][$this->properties['left_column']] : 0;
 
             // if target has children nodes and/or the copy needs to be inserted at a specific position
@@ -396,6 +407,7 @@ class ZebraModel extends Model {
                 // set the boundary - nodes having their "left"/"right" values outside this boundary will be affected by
                 // the insert, and will need to be updated
                 $target_boundary = $target_children[$this->properties['right_column']];
+
             }
 
             // iterate through the nodes in the lookup array
@@ -404,14 +416,15 @@ class ZebraModel extends Model {
                 // if the "left" value of node is outside the boundary
                 if ($properties[$this->properties['left_column']] > $target_boundary)
 
-                // increment it
+                    // increment it
                     $this->lookup[$id][$this->properties['left_column']] += $source_rl_difference;
 
                 // if the "right" value of node is outside the boundary
                 if ($properties[$this->properties['right_column']] > $target_boundary)
 
-                // increment it
+                    // increment it
                     $this->lookup[$id][$this->properties['right_column']] += $source_rl_difference;
+
             }
 
             // lock table to prevent other sessions from modifying the data and thus preserving data integrity
@@ -464,7 +477,7 @@ class ZebraModel extends Model {
                         )
                     VALUES
                         (
-                            "' . $this->db->escape($properties[$this->properties['title_column']]) . '",
+                            "' . $this->db->escapeString($properties[$this->properties['title_column']]) . '",
                             ' . $properties[$this->properties['left_column']] . ',
                             ' . $properties[$this->properties['right_column']] . ',
                             ' . $properties[$this->properties['parent_column']] . '
@@ -478,10 +491,10 @@ class ZebraModel extends Model {
                 // we need to find its children and update the reference to the parent ID
                 foreach ($sources as $key => $value)
 
-                // if a child node was found
+                    // if a child node was found
                     if ($value[$this->properties['parent_column']] == $properties[$this->properties['id_column']])
 
-                    // update the reference to the parent ID
+                        // update the reference to the parent ID
                         $sources[$key][$this->properties['parent_column']] = $node_id;
 
                 // update the node's properties with the ID
@@ -489,6 +502,7 @@ class ZebraModel extends Model {
 
                 // update the array of inserted items
                 $sources[$id] = $properties;
+
             }
 
             // a reference of a $properties and the last array element remain even after the foreach loop
@@ -508,16 +522,16 @@ class ZebraModel extends Model {
                 // if the node has any parents
                 if (count($parents) > 0)
 
-                // iterate through the array of parent nodes
+                    // iterate through the array of parent nodes
                     while ($parents[count($parents) - 1]['right'] < $properties[$this->properties['right_column']])
 
-                    // and remove those which are not parents of the current node
+                        // and remove those which are not parents of the current node
                         array_pop($parents);
 
                 // if there are any parents left
                 if (count($parents) > 0)
 
-                // the last node in the $parents array is the current node's parent
+                    // the last node in the $parents array is the current node's parent
                     $properties[$this->properties['parent_column']] = $parents[count($parents) - 1]['id'];
 
                 // update the lookup array
@@ -525,9 +539,12 @@ class ZebraModel extends Model {
 
                 // add current node to the stack
                 $parents[] = array(
-                    'id' => $properties[$this->properties['id_column']],
-                    'right' => $properties[$this->properties['right_column']]
+
+                    'id'    =>  $properties[$this->properties['id_column']],
+                    'right' =>  $properties[$this->properties['right_column']]
+
                 );
+
             }
 
             // reorder the lookup array
@@ -535,10 +552,12 @@ class ZebraModel extends Model {
 
             // return the ID of the copy
             return $sources[0][$this->properties['id_column']];
+
         }
 
         // if scripts gets this far, return false as something must've went wrong
         return false;
+
     }
 
     /**
@@ -555,14 +574,14 @@ class ZebraModel extends Model {
      *  $child2 = $mptt->add($node, 'Child 2');
      *
      *  // delete the "Child 2" node
-     *  $mptt->remove($child2);
+     *  $mptt->delete($child2);
      *  </code>
      *
      *  @param  integer     $node       The ID of the node to delete.
      *
      *  @return boolean                 TRUE on success or FALSE on error.
      */
-    public function remove($node) {
+    public function delete($node) {
 
         // lazy connection: touch the database only when the data is required for the first time and not at object instantiation
         $this->_init();
@@ -576,7 +595,7 @@ class ZebraModel extends Model {
             // iterate through target node's descendant nodes
             foreach ($descendants as $descendant)
 
-            // remove node from the lookup array
+                // remove node from the lookup array
                 unset($this->lookup[$descendant[$this->properties['id_column']]]);
 
             // lock table to prevent other sessions from modifying the data and thus preserving data integrity
@@ -595,8 +614,13 @@ class ZebraModel extends Model {
             ');
 
             // the value with which items outside the boundary set below, are to be updated with
-            $target_rl_difference = $this->lookup[$node][$this->properties['right_column']] -
-                    $this->lookup[$node][$this->properties['left_column']] + 1;
+            $target_rl_difference =
+
+                $this->lookup[$node][$this->properties['right_column']] -
+
+                $this->lookup[$node][$this->properties['left_column']]
+
+                + 1;
 
             // set the boundary - nodes having their "left"/"right" values outside this boundary will be affected by
             // the insert, and will need to be updated
@@ -611,14 +635,15 @@ class ZebraModel extends Model {
                 // if the "left" value of node is outside the boundary
                 if ($this->lookup[$id][$this->properties['left_column']] > $boundary)
 
-                // decrement it
+                    // decrement it
                     $this->lookup[$id][$this->properties['left_column']] -= $target_rl_difference;
 
                 // if the "right" value of node is outside the boundary
                 if ($this->lookup[$id][$this->properties['right_column']] > $boundary)
 
-                // decrement it
+                    // decrement it
                     $this->lookup[$id][$this->properties['right_column']] -= $target_rl_difference;
+
             }
 
             // update the nodes in the database having their "left"/"right" values outside the boundary
@@ -649,10 +674,12 @@ class ZebraModel extends Model {
 
             // return true as everything went well
             return true;
+
         }
 
         // if script gets this far, something must've went wrong so we return false
         return false;
+
     }
 
     /**
@@ -689,25 +716,29 @@ class ZebraModel extends Model {
             // iterate through the available keys
             foreach ($keys as $item)
 
-            // if
+                // if
                 if (
-                // node's "left" is higher than parent node's "left" (or, if parent is 0, if it is higher than 0)
-                        $this->lookup[$item][$this->properties['left_column']] > ($node != 0 ? $this->lookup[$node][$this->properties['left_column']] : 0) &&
-                        // node's "left" is smaller than parent node's "right" (or, if parent is 0, if it is smaller than PHP's maximum integer value)
-                        $this->lookup[$item][$this->properties['left_column']] < ($node != 0 ? $this->lookup[$node][$this->properties['right_column']] : PHP_INT_MAX) &&
-                        // if we only need the first level children, check if children node's parent node is the parent given as argument
-                        (!$direct_descendants_only || $this->lookup[$item][$this->properties['parent_column']] == $node)
+
+                    // node's "left" is higher than parent node's "left" (or, if parent is 0, if it is higher than 0)
+                    $this->lookup[$item][$this->properties['left_column']] > ($node != 0 ? $this->lookup[$node][$this->properties['left_column']] : 0) &&
+
+                    // node's "left" is smaller than parent node's "right" (or, if parent is 0, if it is smaller than PHP's maximum integer value)
+                    $this->lookup[$item][$this->properties['left_column']] < ($node != 0 ? $this->lookup[$node][$this->properties['right_column']] : PHP_INT_MAX) &&
+
+                    // if we only need the first level children, check if children node's parent node is the parent given as argument
+                    (!$direct_descendants_only || $this->lookup[$item][$this->properties['parent_column']] == $node)
 
                 // save to array
-                )
-                    $descendants[$this->lookup[$item][$this->properties['id_column']]] = $this->lookup[$item];
+                ) $descendants[$this->lookup[$item][$this->properties['id_column']]] = $this->lookup[$item];
 
             // return children nodes
             return $descendants;
+
         }
 
         // if script gets this far, return false as something must've went wrong
         return false;
+
     }
 
     /**
@@ -736,10 +767,10 @@ class ZebraModel extends Model {
         // if parent node exists in the lookup array
         if (isset($this->lookup[$node]))
 
-        // if we require all the descendants (not direct only)
+            // if we require all the descendants (not direct only)
             if (!$direct_descendants_only)
 
-            // return the total number of descendant nodes
+                // return the total number of descendant nodes
                 return ($this->lookup[$node][$this->properties['right_column']] - $this->lookup[$node][$this->properties['left_column']] - 1) / 2;
 
             // if we require direct descendants only
@@ -750,18 +781,20 @@ class ZebraModel extends Model {
                 // iterate through all the records in the lookup array
                 foreach ($this->lookup as $id => $properties)
 
-                // if node is a direct descendant of the parent node
+                    // if node is a direct descendant of the parent node
                     if ($this->lookup[$id][$this->properties['parent_column']] == $node)
 
-                    // increment the number of direct descendant nodes
+                        // increment the number of direct descendant nodes
                         $result++;
 
                 // return the number of direct descendant nodes
                 return $result;
+
             }
 
         // if script gets this far, return false as something must've went wrong
         return false;
+
     }
 
     /**
@@ -791,10 +824,12 @@ class ZebraModel extends Model {
 
             // return result
             return !empty($sibling) ? array_pop($sibling) : 0;
+
         }
 
         // if script gets this far, return false as something must've went wrong
         return false;
+
     }
 
     /**
@@ -817,12 +852,13 @@ class ZebraModel extends Model {
         // if node exists in the lookup array
         if (isset($this->lookup[$node]))
 
-        // if node has a parent node, return the parent node's properties
-        // also, return 0 if the node is a topmost node
+            // if node has a parent node, return the parent node's properties
+            // also, return 0 if the node is a topmost node
             return isset($this->lookup[$this->lookup[$node][$this->properties['parent_column']]]) ? $this->lookup[$this->lookup[$node][$this->properties['parent_column']]] : 0;
 
         // if script gets this far, return false as something must've went wrong
         return false;
+
     }
 
     /**
@@ -842,24 +878,26 @@ class ZebraModel extends Model {
         // if node exists in the lookup array
         if (isset($this->lookup[$node]))
 
-        // iterate through all the nodes in the lookup array
+            // iterate through all the nodes in the lookup array
             foreach ($this->lookup as $id => $properties)
 
-            // if
+                // if
                 if (
-                // node is a parent node
-                        $properties[$this->properties['left_column']] < $this->lookup[$node][$this->properties['left_column']] &&
-                        $properties[$this->properties['right_column']] > $this->lookup[$node][$this->properties['right_column']]
+
+                    // node is a parent node
+                    $properties[$this->properties['left_column']] < $this->lookup[$node][$this->properties['left_column']] &&
+
+                    $properties[$this->properties['right_column']] > $this->lookup[$node][$this->properties['right_column']]
 
                 // save the parent node's information
-                )
-                    $parents[$properties[$this->properties['id_column']]] = $properties;
+                ) $parents[$properties[$this->properties['id_column']]] = $properties;
 
         // add also the node given as argument
         $parents[$node] = $this->lookup[$node];
 
         // return the path to the node
         return $parents;
+
     }
 
     /**
@@ -889,10 +927,12 @@ class ZebraModel extends Model {
 
             // return result
             return !empty($sibling) ? array_pop($sibling) : 0;
+
         }
 
         // if script gets this far, return false as something must've went wrong
         return false;
+
     }
 
     /**
@@ -920,15 +960,16 @@ class ZebraModel extends Model {
             $siblings = $this->get_descendants($properties['parent']);
 
             // remove self, if required so
-            if (!$include_self)
-                unset($siblings[$node]);
+            if (!$include_self) unset($siblings[$node]);
 
             // return siblings
             return $siblings;
+
         }
 
         // if script gets this far, return false as something must've went wrong
         return false;
+
     }
 
     /**
@@ -952,12 +993,13 @@ class ZebraModel extends Model {
         // iterate through the direct children nodes
         foreach ($descendants as $id => $properties)
 
-        // for each child node create a "children" property
-        // and get the node's children nodes, recursively
+            // for each child node create a "children" property
+            // and get the node's children nodes, recursively
             $descendants[$id]['children'] = $this->get_tree($id);
 
         // return the array
         return $descendants;
+
     }
 
     /**
@@ -1015,12 +1057,16 @@ class ZebraModel extends Model {
 
         // continue only if
         if (
-        // source node exists in the lookup array AND
-                isset($this->lookup[$source]) &&
-                // target node exists in the lookup array OR is 0 (indicating a topmost node)
-                (isset($this->lookup[$target]) || $target == 0) &&
-                // target node is not a child node of the source node (that would cause infinite loop)
-                !in_array($target, array_keys($this->get_descendants($source, false)))
+
+            // source node exists in the lookup array AND
+            isset($this->lookup[$source]) &&
+
+            // target node exists in the lookup array OR is 0 (indicating a topmost node)
+            (isset($this->lookup[$target]) || $target == 0) &&
+
+            // target node is not a child node of the source node (that would cause infinite loop)
+            !in_array($target, array_keys($this->get_descendants($source, false)))
+
         ) {
 
             // if we have to move the node after/before another node
@@ -1038,10 +1084,9 @@ class ZebraModel extends Model {
                 $source_position = array_search($source, $keys);
 
                 // move the source node to the desired position
-                if ($position == 'after')
-                    return $this->move($source, $target_parent, $target_position + ($source_position < $target_position ? 0 : 1));
-                else
-                    return $this->move($source, $target_parent, $target_position == 0 ? 0 : $target_position - ($source_position > $target_position ? 0 : 1));
+                if ($position == 'after') return $this->move($source, $target_parent, $target_position + ($source_position < $target_position ? 0 : 1));
+                else return $this->move($source, $target_parent, $target_position == 0 ? 0 : $target_position - ($source_position > $target_position ? 0 : 1));
+
             }
 
             // the source's parent node's ID becomes the target node's ID
@@ -1062,11 +1107,17 @@ class ZebraModel extends Model {
 
                 // for now, remove them from the lookup array
                 unset($this->lookup[$descendant[$this->properties['id_column']]]);
+
             }
 
             // the value with which nodes outside the boundary set below, are to be updated with
-            $source_rl_difference = $this->lookup[$source][$this->properties['right_column']] -
-                    $this->lookup[$source][$this->properties['left_column']] + 1;
+            $source_rl_difference =
+
+                $this->lookup[$source][$this->properties['right_column']] -
+
+                $this->lookup[$source][$this->properties['left_column']]
+
+                + 1;
 
             // set the boundary - nodes having their "left"/"right" values outside this boundary will be affected by
             // the insert, and will need to be updated
@@ -1094,19 +1145,20 @@ class ZebraModel extends Model {
             unset($this->lookup[$source]);
 
             // iterate through the remaining nodes in the lookup array
-            foreach ($this->lookup as $id => $properties) {
+            foreach ($this->lookup as $id=>$properties) {
 
                 // if the "left" value of node is outside the boundary
                 if ($this->lookup[$id][$this->properties['left_column']] > $source_boundary)
 
-                // decrement it
+                    // decrement it
                     $this->lookup[$id][$this->properties['left_column']] -= $source_rl_difference;
 
                 // if the "right" value of item is outside the boundary
                 if ($this->lookup[$id][$this->properties['right_column']] > $source_boundary)
 
-                // decrement it
+                    // decrement it
                     $this->lookup[$id][$this->properties['right_column']] -= $source_rl_difference;
+
             }
 
             // update the nodes in the database having their "left"/"right" values outside the boundary
@@ -1133,33 +1185,34 @@ class ZebraModel extends Model {
             ');
 
             // get descendant nodes of target node (first level only)
-            $target_descendants = $this->get_descendants((int) $target);
+            $target_descendants = $this->get_descendants((int)$target);
 
             // if node is to be inserted in the default position (as the last of target node's children nodes)
             // give a numerical value to the position
-            if ($position === false)
-                $position = count($target_descendants);
+            if ($position === false) $position = count($target_descendants);
 
             // if a custom position was specified
             else {
 
                 // make sure given position is an integer value
-                $position = (int) $position;
+                $position = (int)$position;
 
                 // if position is a bogus number
                 if ($position > count($target_descendants) || $position < 0)
 
-                // use the default position (as the last of the target node's children)
+                    // use the default position (as the last of the target node's children)
                     $position = count($target_descendants);
+
             }
 
             // because of the insert, some nodes need to have their "left" and/or "right" values adjusted
+
             // if target node has no descendant nodes OR the node is to be inserted as the target node's first child node
             if (empty($target_descendants) || $position == 0)
 
-            // set the boundary - nodes having their "left"/"right" values outside this boundary will be affected by
-            // the insert, and will need to be updated
-            // if parent is not found (meaning that we're inserting a topmost node) set the boundary to 0
+                // set the boundary - nodes having their "left"/"right" values outside this boundary will be affected by
+                // the insert, and will need to be updated
+                // if parent is not found (meaning that we're inserting a topmost node) set the boundary to 0
                 $target_boundary = isset($this->lookup[$target]) ? $this->lookup[$target][$this->properties['left_column']] : 0;
 
             // if target has any descendant nodes and/or the node needs to be inserted at a specific position
@@ -1173,6 +1226,7 @@ class ZebraModel extends Model {
                 // set the boundary - nodes having their "left"/"right" values outside this boundary will be affected by
                 // the insert, and will need to be updated
                 $target_boundary = $target_descendants[$this->properties['right_column']];
+
             }
 
             // iterate through the records in the lookup array
@@ -1181,14 +1235,15 @@ class ZebraModel extends Model {
                 // if the "left" value of node is outside the boundary
                 if ($properties[$this->properties['left_column']] > $target_boundary)
 
-                // increment it
+                    // increment it
                     $this->lookup[$id][$this->properties['left_column']] += $source_rl_difference;
 
                 // if the "left" value of node is outside the boundary
                 if ($properties[$this->properties['right_column']] > $target_boundary)
 
-                // increment it
+                    // increment it
                     $this->lookup[$id][$this->properties['right_column']] += $source_rl_difference;
+
             }
 
             // update the nodes in the database having their "left"/"right" values outside the boundary
@@ -1228,6 +1283,7 @@ class ZebraModel extends Model {
 
                 // add the item to our lookup array
                 $this->lookup[$properties[$this->properties['id_column']]] = $properties;
+
             }
 
             // also update the entries in the database
@@ -1265,10 +1321,12 @@ class ZebraModel extends Model {
 
             // return true as everything went well
             return true;
+
         }
 
         // if scripts gets this far, return false as something must've went wrong
         return false;
+
     }
 
     /**
@@ -1279,7 +1337,7 @@ class ZebraModel extends Model {
      *  $node = $mptt->add(0, 'Main');
      *
      *  // change the node's title
-     *  $mptt->modify($node, 'Primary');
+     *  $mptt->update($node, 'Primary');
      *  </code>
      *
      *  @param  integer     $node       The ID of a node to update the title for.
@@ -1290,7 +1348,7 @@ class ZebraModel extends Model {
      *
      *  @since  2.2.5
      */
-    public function modify($node, $title) {
+    public function update($node, $title) {
 
         // lazy connection: touch the database only when the data is required for the first time and not at object instantiation
         $this->_init();
@@ -1321,10 +1379,12 @@ class ZebraModel extends Model {
 
             // return true as everything went well
             return true;
+
         }
 
         // if scripts gets this far, return false as something must've went wrong
         return false;
+
     }
 
     /**
@@ -1381,8 +1441,7 @@ class ZebraModel extends Model {
             $descendants = $this->get_descendants($node, false);
 
             // if node is not 0, prepend the item itself to the list
-            if ($node != 0)
-                array_unshift($descendants, $this->lookup[$node]);
+            if ($node != 0) array_unshift($descendants, $this->lookup[$node]);
 
             // iterate through the nodes
             foreach ($descendants as $properties) {
@@ -1391,11 +1450,11 @@ class ZebraModel extends Model {
                 if ($properties[$this->properties['parent_column']] == 0) {
 
                     // if the $nodes variable is set, save the what we have so far
-                    if (isset($nodes))
-                        $result += $nodes;
+                    if (isset($nodes)) $result += $nodes;
 
                     // reset the categories and parents arrays
                     $nodes = $parents = array();
+
                 }
 
                 // if the node has any parents
@@ -1406,8 +1465,9 @@ class ZebraModel extends Model {
                     // iterate through the array of parent nodes
                     while (array_pop($keys) < $properties[$this->properties['right_column']])
 
-                    // and remove parents that are not parents of current node
+                        // and remove parents that are not parents of current node
                         array_pop($parents);
+
                 }
 
                 // add node to the stack of nodes
@@ -1415,19 +1475,21 @@ class ZebraModel extends Model {
 
                 // add node to the stack of parents
                 $parents[$properties[$this->properties['right_column']]] = $properties[$this->properties['title_column']];
+
             }
 
             // may not be set when there are no nodes at all
             // finalize the result
-            if (isset($nodes))
-                $result += $nodes;
+            if (isset($nodes)) $result += $nodes;
 
             // return the resulting array
             return $result;
+
         }
 
         // if the script gets this far, return false as something must've went wrong
         return false;
+
     }
 
     /**
@@ -1466,8 +1528,7 @@ class ZebraModel extends Model {
 
         // if node is an ID, get the descendant nodes
         //  (when called recursively this is an array)
-        if (!is_array($node))
-            $node = $this->get_tree($node);
+        if (!is_array($node)) $node = $this->get_tree($node);
 
         // if there are any elements
         if (!empty($node)) {
@@ -1478,14 +1539,16 @@ class ZebraModel extends Model {
             // iterate through each node
             foreach ($node as $elem)
 
-            // generate output and if the node has children nodes, call this method recursively
+                // generate output and if the node has children nodes, call this method recursively
                 $out .= '<li class="zebra_mptt_item zebra_mptt_item_' . $elem[$this->properties['id_column']] . '">' .
-                        $elem[$this->properties['title_column']] . (is_array($elem['children']) ? $this->to_list($elem['children'], $list_type) : '') .
-                        '</li>';
+                    $elem[$this->properties['title_column']] . (is_array($elem['children']) ? $this->to_list($elem['children'], $list_type) : '') .
+                '</li>';
 
             // return generated output
             return $out . '</' . $list_type . '>';
+
         }
+
     }
 
     /**
@@ -1502,7 +1565,7 @@ class ZebraModel extends Model {
         if (!isset($this->lookup)) {
 
             // fetch data from the database
-            $query = $this->db->query('
+            $result = $this->db->query('
 
                 SELECT
                     *
@@ -1516,12 +1579,13 @@ class ZebraModel extends Model {
             $this->lookup = array();
 
             // iterate through the found records
-            foreach ($query->getResultArray() as $row) {
+            while ($row = $result->getResultArray($result))
 
                 // put all records in an array; use the ID column as index
                 $this->lookup[$row[$this->properties['id_column']]] = $row;
-            }
+
         }
+
     }
 
     /**
@@ -1534,10 +1598,11 @@ class ZebraModel extends Model {
     private function _reorder_lookup_array() {
 
         // reorder the lookup array
+
         // iterate through the nodes in the lookup array
         foreach ($this->lookup as $properties)
 
-        // create a new array with the name of "left" column, having the values from the "left" column
+            // create a new array with the name of "left" column, having the values from the "left" column
             ${$this->properties['left_column']}[] = $properties[$this->properties['left_column']];
 
         // order the array by the left column
@@ -1549,7 +1614,7 @@ class ZebraModel extends Model {
         // iterate through the existing nodes
         foreach ($this->lookup as $properties)
 
-        // and save them to a different array, this time with the correct ID
+            // and save them to a different array, this time with the correct ID
             $tmp[$properties[$this->properties['id_column']]] = $properties;
 
         // the updated lookup array
@@ -1557,6 +1622,7 @@ class ZebraModel extends Model {
 
         // free memory
         unset($tmp);
+
     }
 
 }
